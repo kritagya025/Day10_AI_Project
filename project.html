@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple AI Debate</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #e9ecef;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        .container {
+            width: 100%;
+            max-width: 650px;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 25px;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 15px;
+        }
+        button {
+            width: 100%;
+            background-color: #3498db;
+            color: white;
+            padding: 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover:not(:disabled) {
+            background-color: #2980b9;
+        }
+        button:disabled, button.loading {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        #chat-box {
+            margin-top: 25px;
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            width: fit-content;
+            max-width: 85%;
+            line-height: 1.4;
+        }
+        .person1 {
+            background-color: #d0ebff;
+            color: #004085;
+            border-left: 4px solid #1890ff;
+            align-self: flex-start;
+        }
+        .person2 {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-right: 4px solid #dc3545;
+            margin-left: auto;
+        }
+        h4 {
+            margin: 0 0 5px 0;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        p {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Historical Debate AI</h2>
+    
+    <label>Topic:</label>
+    <input type="text" id="topic" value="Is technology good for humanity?" style="width: 100%;">
+    
+    <label>Person 1:</label>
+    <input type="text" id="person1" value="Adolf Hitler">
+    
+    <label>Person 2:</label>
+    <input type="text" id="person2" value="Joseph Stalin">
+
+    <button id="debate-btn" onclick="takeTurn()">Start/Continue Debate</button>
+
+    <div id="chat-box"></div>
+</div>
+
+<script>
+    const apiKey = "AIzaSyAemqatcZ0PjH8KRq0YqJ7rb3odjAxsiHc";
+    
+    let currentTurn = 1;
+    let history = [];
+    let isLoading = false;
+
+    async function takeTurn() {
+        if (isLoading) return;
+
+        const topic = document.getElementById("topic").value;
+        const p1Name = document.getElementById("person1").value;
+        const p2Name = document.getElementById("person2").value;
+        const btn = document.getElementById("debate-btn");
+        const chatBox = document.getElementById("chat-box");
+
+        let currentSpeaker = currentTurn === 1 ? p1Name : p2Name;
+        let opponent = currentTurn === 1 ? p2Name : p1Name;
+
+        isLoading = true;
+        btn.disabled = true;
+        btn.classList.add("loading");
+        btn.innerText = currentSpeaker + " is thinking...";
+
+        let pastChat = history.map(item => item.speaker + " said: " + item.text).join("\n");
+        let promptText = `
+        You are completely roleplaying as the historical dictator: ${currentSpeaker}. 
+        You are in a fierce, aggressive debate with another historical figure: ${opponent}. 
+        The topic is: "${topic}".
+        
+        Debate History:
+        ${pastChat}
+        
+        Write your next response addressing ${opponent}.
+        
+        STRICT RULES TO FOLLOW:
+        1. MIMIC YOUR HISTORICAL PERSONA PERFECTLY. Do not talk like a normal modern person.
+        2. Use the extreme ego, pride, vocabulary, and ruthlessness associated with ${currentSpeaker}.
+        3. If you are known for specific catchphrases (like Caesar's "Veni, vidi, vici"), use that style of speech.
+        4. Attack ${opponent}'s arguments aggressively based on your own brutal historical methods of ruling.
+        5. Keep it short (under 50 words) and use simple, easy-to-read English, but keep the dramatic, dictatorial tone!
+        6. Do not include your name in the response.
+        `;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
+            });
+
+            const data = await response.json();
+            
+            let answer = data.candidates[0].content.parts[0].text;
+
+            history.push({ speaker: currentSpeaker, text: answer });
+
+            chatBox.innerHTML += `
+                <div class="message ${currentTurn === 1 ? 'person1' : 'person2'}">
+                    <h4>${currentSpeaker}</h4>
+                    <p>${answer}</p>
+                </div>
+            `;
+            
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            if (currentTurn === 1) {
+                currentTurn = 2;
+            } else {
+                currentTurn = 1;
+            }
+            
+            btn.innerText = "Next Turn";
+
+        } catch (error) {
+            alert("Error talking to AI: " + error.message);
+        } finally {
+            isLoading = false;
+            btn.disabled = false;
+            btn.classList.remove("loading");
+            if(btn.innerText.includes("thinking...")) {
+                btn.innerText = "Next Turn";
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
